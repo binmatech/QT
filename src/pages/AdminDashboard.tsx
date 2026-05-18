@@ -203,14 +203,14 @@ export default function AdminDashboard() {
     if (!auth.currentUser) {
       throw new Error("You must be logged in to upload images.");
     }
+
+    if (!storage.app.options.storageBucket) {
+      throw new Error("ERROR: Storage bucket not configured. If you are deploying to Vercel, make sure you have added the VITE_FIREBASE_STORAGE_BUCKET environment variable. If this is a new project, you also need to enable Storage in the Firebase Console.");
+    }
     
     try {
       const storageRef = ref(storage, `articles/${Date.now()}_${file.name}`);
       console.log("Storage reference created:", storageRef.fullPath);
-      
-      // Using uploadBytes for potentially better reliability/simpler error handling
-      // while still using a manual timeout check if needed.
-      // But we'll try uploadBytesResumable again with extra guard.
       
       return new Promise((resolve, reject) => {
         const uploadTask = uploadBytesResumable(storageRef, file);
@@ -222,7 +222,7 @@ export default function AdminDashboard() {
           if (!hasHandled && uploadTask.snapshot.bytesTransferred === 0) {
             hasHandled = true;
             uploadTask.cancel();
-            reject(new Error("UPLOAD BLOCKED: Storage appears uninitialized. Please go to your Firebase Console -> Storage and click 'Get Started' to activate the service."));
+            reject(new Error("UPLOAD BLOCKED: Storage appears uninitialized. This often means you need to go to your Firebase Console -> Storage and click 'Get Started'. If you are on Vercel, ensure VITE_FIREBASE_STORAGE_BUCKET is correctly set."));
           }
         }, 90000);
 
@@ -238,9 +238,11 @@ export default function AdminDashboard() {
             clearTimeout(timeout);
             hasHandled = true;
             if (err.code === 'storage/unauthorized') {
-              reject(new Error("Firebase Storage permissions denied. You may need to manually enable Storage rules in the Firebase Console."));
+              reject(new Error("Firebase Storage permissions denied. Check your Storage rules in the Firebase Console. They should allow authenticated writes."));
             } else if (err.code === 'storage/retry-limit-exceeded') {
               reject(new Error("Upload failed multiple times. Check your internet connection."));
+            } else if (err.code === 'storage/unknown' && err.message.includes('bucket')) {
+              reject(new Error("Storage bucket not found or incorrect. Double check your VITE_FIREBASE_STORAGE_BUCKET environment variable."));
             } else {
               reject(err);
             }
@@ -249,8 +251,13 @@ export default function AdminDashboard() {
             console.log("Upload completed successfully!");
             clearTimeout(timeout);
             hasHandled = true;
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(downloadURL);
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(downloadURL);
+            } catch (urlErr) {
+              console.error("Error getting download URL:", urlErr);
+              reject(new Error("Failed to retrieve image URL after upload. Check your Storage bucket settings."));
+            }
           }
         );
       });

@@ -27,6 +27,10 @@ if (!hasRequiredConfig) {
   console.warn("Firebase configuration is missing required fields. Ensure environment variables are set correctly.");
 }
 
+if (!firebaseConfig.storageBucket) {
+  console.warn("Firebase Storage Bucket is missing. File uploads will fail. If you are on Vercel, ensure VITE_FIREBASE_STORAGE_BUCKET is set.");
+}
+
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
 export const auth = getAuth(app);
@@ -51,7 +55,18 @@ async function testConnection() {
 }
 testConnection();
 
-export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const signInWithGoogle = async () => {
+  try {
+    return await signInWithPopup(auth, googleProvider);
+  } catch (error: any) {
+    if (error.code === 'auth/popup-closed-by-user') {
+      // Silently handle popup closed by user
+      return null;
+    }
+    console.error("Authentication error:", error);
+    throw error;
+  }
+};
 export const logout = () => signOut(auth);
 
 export enum OperationType {
