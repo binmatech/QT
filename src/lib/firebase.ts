@@ -37,6 +37,19 @@ export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
+export const getFirebaseStatus = () => ({
+  isConfigured: hasRequiredConfig,
+  hasStorage: !!firebaseConfig.storageBucket,
+  projectId: firebaseConfig.projectId,
+  missingVars: [
+    !import.meta.env.VITE_FIREBASE_API_KEY && "VITE_FIREBASE_API_KEY",
+    !import.meta.env.VITE_FIREBASE_AUTH_DOMAIN && "VITE_FIREBASE_AUTH_DOMAIN",
+    !import.meta.env.VITE_FIREBASE_PROJECT_ID && "VITE_FIREBASE_PROJECT_ID",
+    !import.meta.env.VITE_FIREBASE_STORAGE_BUCKET && "VITE_FIREBASE_STORAGE_BUCKET",
+    !import.meta.env.VITE_FIREBASE_APP_ID && "VITE_FIREBASE_APP_ID"
+  ].filter(Boolean) as string[]
+});
+
 // Connection test as per skill guidelines
 async function testConnection() {
   try {

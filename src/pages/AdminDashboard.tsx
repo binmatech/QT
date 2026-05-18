@@ -10,7 +10,7 @@ import { Article, NewsEvent, Expert, SpotlightStory } from "../types";
 import { LayoutDashboard, FilePlus, LogOut, CheckCircle, AlertCircle, ArrowLeft, Upload, Image as ImageIcon, Loader2, Trash2, Calendar, Users, Twitter, Linkedin, ExternalLink, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { storage, auth } from "../lib/firebase";
+import { storage, auth, getFirebaseStatus } from "../lib/firebase";
 
 import RichTextEditor from "../components/RichTextEditor";
 
@@ -559,6 +559,12 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-6">
+            {!getFirebaseStatus().hasStorage && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 text-amber-600 border border-amber-200 text-[10px] font-bold uppercase tracking-widest rounded animate-pulse">
+                <AlertCircle size={14} />
+                Bucket Missing (Check Vercel Env)
+              </div>
+            )}
             <button 
               onClick={() => {
                 if (user?.uid) {
@@ -577,6 +583,31 @@ export default function AdminDashboard() {
             </button>
           </div>
         </header>
+
+        {getFirebaseStatus().missingVars.length > 0 && (
+          <div className="mb-12 p-6 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="text-amber-600 mt-1" size={24} />
+              <div>
+                <h3 className="font-bold text-amber-800 mb-1 leading-tight">Configuration Missing (Vercel Action Required)</h3>
+                <p className="text-sm text-amber-700 mb-4">
+                  The following environment variables are not set in your Vercel project settings. Without these, your data and storage will not work correctly.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {getFirebaseStatus().missingVars.map(v => (
+                    <code key={v} className="bg-white/60 px-2 py-1 rounded text-[10px] font-mono border border-amber-200">
+                      {v}
+                    </code>
+                  ))}
+                </div>
+                <p className="mt-4 text-[11px] text-amber-600 italic">
+                  Tip: Copy these from your local <code>firebase-applet-config.json</code> or your Firebase Console. 
+                  Also, ensure you have configured <strong className="underline">CORS</strong> in the Google Cloud Console for your bucket if images are still not appearing.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {view === 'create' ? (
           <section className="max-w-4xl">
