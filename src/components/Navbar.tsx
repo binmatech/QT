@@ -8,10 +8,20 @@ import { Link, useNavigate } from "react-router-dom";
 export default function Navbar() {
   const { user } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const navigate = useNavigate();
 
   const ADMIN_EMAIL = "subairnurudeen20@gmail.com";
   const isAdmin = user?.email === ADMIN_EMAIL;
+
+  const navItems = [
+    { name: "Trending", path: "/trending" },
+    { name: "Technology", path: "/category/Technology" },
+    { name: "FinTech", path: "/category/FinTech" },
+    { name: "Business", path: "/category/Business" },
+    { name: "Markets", path: "/category/Markets" },
+    { name: "Events", path: "/events" }
+  ];
 
   return (
     <motion.nav 
@@ -26,14 +36,7 @@ export default function Navbar() {
         </Link>
 
         <div className="hidden lg:flex items-center gap-8 flex-1">
-          {[
-            { name: "Trending", path: "/trending" },
-            { name: "Technology", path: "/category/Technology" },
-            { name: "FinTech", path: "/category/FinTech" },
-            { name: "Business", path: "/category/Business" },
-            { name: "Markets", path: "/category/Markets" },
-            { name: "Events", path: "/events" }
-          ].map((item) => (
+          {navItems.map((item) => (
             <Link 
               key={item.name} 
               to={item.path} 
@@ -102,11 +105,64 @@ export default function Navbar() {
             </button>
           )}
 
-          <button className="lg:hidden p-2 hover:bg-slate-50 rounded-full transition-colors">
+          <button 
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            className="lg:hidden p-2 hover:bg-slate-50 rounded-full transition-colors"
+          >
             <Menu size={20} className="text-slate-600" />
           </button>
         </div>
       </div>
+
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {showMobileMenu && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMobileMenu(false)}
+              className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+            />
+            <motion.div 
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed top-0 right-0 bottom-0 w-[80%] max-w-sm bg-white z-50 lg:hidden shadow-2xl p-8 flex flex-col"
+            >
+              <div className="flex justify-between items-center mb-12">
+                <span className="font-editorial font-black text-xl">MENU</span>
+                <button 
+                  onClick={() => setShowMobileMenu(false)}
+                  className="p-2 -mr-2 text-slate-400 hover:text-black"
+                >
+                  <Menu size={24} className="rotate-90" />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-6">
+                {navItems.map((item) => (
+                  <Link 
+                    key={item.name} 
+                    to={item.path} 
+                    onClick={() => setShowMobileMenu(false)}
+                    className="text-2xl font-editorial font-bold hover:text-brand-accent transition-colors"
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
+
+              <div className="mt-auto pt-12 border-t border-slate-100 italic font-serif text-slate-400 text-sm">
+                Quotients Africa &copy; 2026. <br />
+                All Rights Reserved.
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.nav>
   );
 }
