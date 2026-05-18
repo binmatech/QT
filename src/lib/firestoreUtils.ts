@@ -4,11 +4,11 @@ import { db, OperationType, handleFirestoreError } from './firebase';
 /**
  * Wraps a Firestore operation with a timeout to prevent hanging.
  */
-export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 15000): Promise<T> {
+export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 45000): Promise<T> {
   let timeoutId: any;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
-      reject(new Error("Firebase operation timed out. This often happens if you are offline or if the connection is blocked. Check your network or Firebase project settings."));
+      reject(new Error("Firebase operation timed out. (Timeout: 45s). This often happens if you are offline, if the connection is blocked by a corporate firewall/proxy, or if your environment variables in Vercel are not correctly set (must start with VITE_)."));
     }, timeoutMs);
   });
 
