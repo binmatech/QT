@@ -605,6 +605,24 @@ export default function AdminDashboard() {
                   Also, ensure you have configured <strong className="underline">CORS</strong> in the Google Cloud Console for your bucket if images are still not appearing. 
                   In the Google Cloud API Explorer for CORS PATCH, the <code className="bg-white/40 px-1 rounded">bucket</code> should be your bucket name (e.g. <code>{getFirebaseStatus().projectId}.firebasestorage.app</code>).
                 </p>
+                <div className="mt-4 p-3 bg-white/40 rounded border border-amber-200">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-2">CORS Configuration Body (JSON)</p>
+                  <pre className="text-[9px] font-mono text-amber-900 bg-white/30 p-2 rounded overflow-x-auto select-all">
+{`{
+  "cors": [
+    {
+      "origin": ["*"],
+      "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+      "responseHeader": ["Content-Type", "Authorization", "x-goog-resumable"],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}`}
+                  </pre>
+                  <p className="mt-2 text-[9px] text-amber-600">
+                    Paste this into the <strong>Request body</strong> field, check <strong>Authorize</strong> and click <strong>Run</strong>.
+                  </p>
+                </div>
                 <div className="mt-6 p-4 bg-white/40 rounded border border-amber-200">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-3">Vercel Environment Setup</p>
                   <p className="text-[11px] text-amber-700 mb-3">Copy your settings below and paste them into Vercel Settings {'>'} Environment Variables:</p>
