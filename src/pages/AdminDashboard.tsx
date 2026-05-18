@@ -10,7 +10,8 @@ import { Article, NewsEvent, Expert, SpotlightStory } from "../types";
 import { LayoutDashboard, FilePlus, LogOut, CheckCircle, AlertCircle, ArrowLeft, Upload, Image as ImageIcon, Loader2, Trash2, Calendar, Users, Twitter, Linkedin, ExternalLink, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { storage, auth, getFirebaseStatus } from "../lib/firebase";
+import { storage, auth, getFirebaseStatus, db } from "../lib/firebase";
+import { withTimeout } from "../lib/firestoreUtils";
 
 import RichTextEditor from "../components/RichTextEditor";
 
@@ -308,7 +309,19 @@ export default function AdminDashboard() {
       setImageFile(null);
       setImagePreview(null);
     } catch (err: any) {
-      setError(err.message || "Failed to create article");
+      let errorMessage = err.message || "Failed to create article";
+      
+      // Try to parse JSON error from firestore handler
+      try {
+        if (errorMessage.startsWith('{')) {
+          const parsed = JSON.parse(errorMessage);
+          errorMessage = parsed.error || errorMessage;
+        }
+      } catch (e) {
+        // Fallback to original message
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
       setUploading(false);
@@ -354,7 +367,14 @@ export default function AdminDashboard() {
       setImageFile(null);
       setImagePreview(null);
     } catch (err: any) {
-      setError(err.message || "Failed to create event");
+      let errorMessage = err.message || "Failed to create event";
+      try {
+        if (errorMessage.startsWith('{')) {
+          const parsed = JSON.parse(errorMessage);
+          errorMessage = parsed.error || errorMessage;
+        }
+      } catch (e) {}
+      setError(errorMessage);
     } finally {
       setLoading(false);
       setUploading(false);
@@ -401,7 +421,14 @@ export default function AdminDashboard() {
       setImageFile(null);
       setImagePreview(null);
     } catch (err: any) {
-      setError(err.message || "Failed to add expert");
+      let errorMessage = err.message || "Failed to add expert";
+      try {
+        if (errorMessage.startsWith('{')) {
+          const parsed = JSON.parse(errorMessage);
+          errorMessage = parsed.error || errorMessage;
+        }
+      } catch (e) {}
+      setError(errorMessage);
     } finally {
       setLoading(false);
       setUploading(false);
@@ -446,7 +473,14 @@ export default function AdminDashboard() {
       setImageFile(null);
       setImagePreview(null);
     } catch (err: any) {
-      setError(err.message || "Failed to create spotlight story");
+      let errorMessage = err.message || "Failed to create spotlight story";
+      try {
+        if (errorMessage.startsWith('{')) {
+          const parsed = JSON.parse(errorMessage);
+          errorMessage = parsed.error || errorMessage;
+        }
+      } catch (e) {}
+      setError(errorMessage);
     } finally {
       setLoading(false);
       setUploading(false);
@@ -566,6 +600,26 @@ export default function AdminDashboard() {
               </div>
             )}
             <button 
+              onClick={async () => {
+                setLoading(true);
+                setError(null);
+                try {
+                  const { doc, setDoc, deleteDoc } = await import("firebase/firestore");
+                  const testRef = doc(db, "test", "connection_debug_" + Date.now());
+                  await withTimeout(setDoc(testRef, { test: true, time: Date.now() }));
+                  await withTimeout(deleteDoc(testRef));
+                  alert("Firestore Connection Success! Read/Write operations are working.");
+                } catch (err: any) {
+                  setError("Firestore Test Failed: " + err.message);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="editorial-label text-blue-400 hover:text-blue-600 transition-colors"
+            >
+              Debug Connection
+            </button>
+            <button 
               onClick={() => {
                 if (user?.uid) {
                   import("../services/articleService").then(m => m.seedDatabase(user.uid));
@@ -585,29 +639,54 @@ export default function AdminDashboard() {
         </header>
 
         {getFirebaseStatus().missingVars.length > 0 && (
-          <div className="mb-12 p-6 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="mb-12 p-6 bg-amber-50 border border-amber-200 rounded-lg shadow-sm">
             <div className="flex items-start gap-4">
-              <AlertCircle className="text-amber-600 mt-1" size={24} />
-              <div>
-                <h3 className="font-bold text-amber-800 mb-1 leading-tight">Configuration Missing (Vercel Action Required)</h3>
-                <p className="text-sm text-amber-700 mb-4">
-                  The following environment variables are not set in your Vercel project settings. Without these, your data and storage will not work correctly.
+              <div className="p-3 bg-amber-100 rounded-full text-amber-600">
+                <AlertCircle size={28} />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-editorial text-xl font-bold text-amber-900 mb-1 leading-tight">Vercel Deployment Sync Required</h3>
+                <p className="text-sm text-amber-700 mb-6 max-w-2xl">
+                  Your app works here because of a local config file, but <span className="font-bold underline">Vercel requires environment variables</span> to be set manually. Without these, your live site will be blank.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {getFirebaseStatus().missingVars.map(v => (
-                    <code key={v} className="bg-white/60 px-2 py-1 rounded text-[10px] font-mono border border-amber-200">
-                      {v}
-                    </code>
-                  ))}
+                
+                <div className="grid md:grid-cols-2 gap-6 items-start">
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800">Connection Checklist</p>
+                    <div className="space-y-2">
+                      {Object.entries(getFirebaseStatus().vars).map(([name, exists]) => (
+                        <div key={name} className={`flex items-center justify-between p-2 rounded border text-[11px] font-mono ${exists ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-amber-200 text-amber-600'}`}>
+                          <span>{name}</span>
+                          <span className="flex items-center gap-1 font-bold">
+                            {exists ? <><CheckCircle size={12} /> Stored</> : <><AlertCircle size={12} /> MISSING</>}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white/60 p-4 rounded border border-amber-200">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-3">Copy to Vercel Dashboard</p>
+                    <p className="text-[11px] text-amber-700 mb-4 italic">
+                      Go to Vercel {">"} Settings {">"} Environment Variables and add these:
+                    </p>
+                    <div className="space-y-1 font-mono text-[10px] text-amber-900 p-3 bg-white/40 rounded break-all select-all border border-amber-100">
+                      <p>VITE_FIREBASE_API_KEY=your_key</p>
+                      <p>VITE_FIREBASE_AUTH_DOMAIN={getFirebaseStatus().projectId}.firebaseapp.com</p>
+                      <p>VITE_FIREBASE_PROJECT_ID={getFirebaseStatus().projectId}</p>
+                      <p>VITE_FIREBASE_STORAGE_BUCKET={getFirebaseStatus().projectId}.firebasestorage.app</p>
+                      <p>VITE_FIREBASE_APP_ID=your_app_id</p>
+                    </div>
+                    <p className="mt-4 text-[10px] text-amber-600 leading-relaxed font-medium">
+                      * After adding these in Vercel, you must <span className="underline">Trigger a New Deployment</span> for changes to take effect.
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-4 text-[11px] text-amber-600 italic">
-                  Tip: Copy these from your local <code>firebase-applet-config.json</code> or your Firebase Console. 
-                  Also, ensure you have configured <strong className="underline">CORS</strong> in the Google Cloud Console for your bucket if images are still not appearing. 
-                  In the Google Cloud API Explorer for CORS PATCH, the <code className="bg-white/40 px-1 rounded">bucket</code> should be your bucket name (e.g. <code>{getFirebaseStatus().projectId}.firebasestorage.app</code>).
-                </p>
-                <div className="mt-4 p-3 bg-white/40 rounded border border-amber-200">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-2">CORS Configuration Body (JSON)</p>
-                  <pre className="text-[9px] font-mono text-amber-900 bg-white/30 p-2 rounded overflow-x-auto select-all">
+
+                <div className="mt-6 pt-6 border-t border-amber-200">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-3">Fix Missing Images (CORS Setup)</p>
+                  <p className="text-[11px] text-amber-700 mb-3">If images upload but don't show, paste this JSON into Google Cloud Console CORS Settings:</p>
+                  <pre className="text-[9px] font-mono text-amber-900 bg-white/30 p-2 rounded overflow-x-auto select-all border border-amber-100">
 {`{
   "cors": [
     {
@@ -619,20 +698,6 @@ export default function AdminDashboard() {
   ]
 }`}
                   </pre>
-                  <p className="mt-2 text-[9px] text-amber-600">
-                    Paste this into the <strong>Request body</strong> field, check <strong>Authorize</strong> and click <strong>Run</strong>.
-                  </p>
-                </div>
-                <div className="mt-6 p-4 bg-white/40 rounded border border-amber-200">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-3">Vercel Environment Setup</p>
-                  <p className="text-[11px] text-amber-700 mb-3">Copy your settings below and paste them into Vercel Settings {'>'} Environment Variables:</p>
-                  <div className="space-y-1 font-mono text-[9px] text-amber-900 break-all select-all">
-                    <p>VITE_FIREBASE_API_KEY=your_key</p>
-                    <p>VITE_FIREBASE_AUTH_DOMAIN={getFirebaseStatus().projectId}.firebaseapp.com</p>
-                    <p>VITE_FIREBASE_PROJECT_ID={getFirebaseStatus().projectId}</p>
-                    <p>VITE_FIREBASE_STORAGE_BUCKET={getFirebaseStatus().projectId}.firebasestorage.app</p>
-                    <p>VITE_FIREBASE_APP_ID=your_app_id</p>
-                  </div>
                 </div>
               </div>
             </div>

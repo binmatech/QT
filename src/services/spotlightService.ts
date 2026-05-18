@@ -1,13 +1,14 @@
-import { collection, query, getDocs, orderBy, Timestamp, addDoc, doc, deleteDoc, getDoc, updateDoc } from 'firebase/firestore';
-import { db, OperationType, handleFirestoreError } from '../lib/firebase';
+import { collection, query, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { SpotlightStory } from '../types';
+import { createDocument, deleteDocument, updateDocument, withTimeout } from '../lib/firestoreUtils';
 
 const SPOTLIGHT_COLLECTION = 'spotlight';
 
 export const getSpotlightStoryById = async (id: string) => {
   try {
     const docRef = doc(db, SPOTLIGHT_COLLECTION, id);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await withTimeout(getDoc(docRef));
     
     if (docSnap.exists()) {
       return {
@@ -29,7 +30,7 @@ export const getSpotlightStories = async () => {
       orderBy('createdAt', 'desc')
     );
 
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await withTimeout(getDocs(q));
     return querySnapshot.docs.map(doc => ({
       ...doc.data(),
       id: doc.id
@@ -41,34 +42,14 @@ export const getSpotlightStories = async () => {
 };
 
 export const createSpotlightStory = async (storyData: Omit<SpotlightStory, 'id' | 'createdAt'>) => {
-  try {
-    const docRef = await addDoc(collection(db, SPOTLIGHT_COLLECTION), {
-      ...storyData,
-      createdAt: Timestamp.now(),
-    });
-    return docRef.id;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, SPOTLIGHT_COLLECTION);
-  }
+  const docRef = await createDocument(SPOTLIGHT_COLLECTION, storyData);
+  return docRef?.id;
 };
 
 export const updateSpotlightStory = async (storyId: string, storyData: Partial<SpotlightStory>) => {
-  try {
-    const docRef = doc(db, SPOTLIGHT_COLLECTION, storyId);
-    await updateDoc(docRef, storyData);
-    return true;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, SPOTLIGHT_COLLECTION);
-    return false;
-  }
+  return await updateDocument(SPOTLIGHT_COLLECTION, storyId, storyData);
 };
 
 export const deleteSpotlightStory = async (storyId: string) => {
-  try {
-    await deleteDoc(doc(db, SPOTLIGHT_COLLECTION, storyId));
-    return true;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, SPOTLIGHT_COLLECTION);
-    return false;
-  }
+  return await deleteDocument(SPOTLIGHT_COLLECTION, storyId);
 };

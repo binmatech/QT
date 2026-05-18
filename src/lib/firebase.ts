@@ -37,18 +37,26 @@ export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
-export const getFirebaseStatus = () => ({
-  isConfigured: hasRequiredConfig,
-  hasStorage: !!firebaseConfig.storageBucket,
-  projectId: firebaseConfig.projectId,
-  missingVars: [
-    !import.meta.env.VITE_FIREBASE_API_KEY && "VITE_FIREBASE_API_KEY",
-    !import.meta.env.VITE_FIREBASE_AUTH_DOMAIN && "VITE_FIREBASE_AUTH_DOMAIN",
-    !import.meta.env.VITE_FIREBASE_PROJECT_ID && "VITE_FIREBASE_PROJECT_ID",
-    !import.meta.env.VITE_FIREBASE_STORAGE_BUCKET && "VITE_FIREBASE_STORAGE_BUCKET",
-    !import.meta.env.VITE_FIREBASE_APP_ID && "VITE_FIREBASE_APP_ID"
-  ].filter(Boolean) as string[]
-});
+export const getFirebaseStatus = () => {
+  const vars = {
+    VITE_FIREBASE_API_KEY: !!import.meta.env.VITE_FIREBASE_API_KEY,
+    VITE_FIREBASE_AUTH_DOMAIN: !!import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    VITE_FIREBASE_PROJECT_ID: !!import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    VITE_FIREBASE_STORAGE_BUCKET: !!import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    VITE_FIREBASE_APP_ID: !!import.meta.env.VITE_FIREBASE_APP_ID
+  };
+
+  return {
+    isConfigured: hasRequiredConfig,
+    hasStorage: !!firebaseConfig.storageBucket,
+    projectId: firebaseConfig.projectId,
+    vars,
+    isLocalConfig: configFiles.length > 0 && !Object.values(vars).every(Boolean),
+    missingVars: Object.entries(vars)
+      .filter(([_, exists]) => !exists)
+      .map(([name]) => name)
+  };
+};
 
 // Connection test as per skill guidelines
 async function testConnection() {
