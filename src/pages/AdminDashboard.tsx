@@ -10,7 +10,7 @@ import { Article, NewsEvent, Expert, SpotlightStory } from "../types";
 import { LayoutDashboard, FilePlus, LogOut, CheckCircle, AlertCircle, ArrowLeft, Upload, Image as ImageIcon, Loader2, Trash2, Calendar, Users, Twitter, Linkedin, ExternalLink, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { storage, auth, getFirebaseStatus, db } from "../lib/firebase";
+import { storage, auth, getFirebaseStatus, db, signInWithGoogle } from "../lib/firebase";
 import { withTimeout } from "../lib/firestoreUtils";
 
 import RichTextEditor from "../components/RichTextEditor";
@@ -168,15 +168,70 @@ export default function AdminDashboard() {
   });
 
   if (!user || user.email !== ADMIN_EMAIL) {
+    const isErrorPopupBlocked = error === "POPUP_BLOCKED";
+    const isErrorInternal = error === "FIREBASE_INTERNAL_ERROR";
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-        <div className="max-w-md w-full bg-white p-10 border border-slate-200 text-center">
-          <AlertCircle size={48} className="text-red-500 mx-auto mb-6" />
-          <h1 className="text-2xl font-editorial font-bold mb-4">Access Denied</h1>
-          <p className="text-slate-500 mb-8">You do not have permission to access the admin dashboard.</p>
-          <Link to="/" className="inline-flex items-center gap-2 text-brand-accent font-bold uppercase tracking-widest text-xs">
-            <ArrowLeft size={16} /> Back to Home
-          </Link>
+        <div className="max-w-md w-full bg-white p-10 border border-slate-200 text-center shadow-xl">
+          <AlertCircle size={48} className={`mx-auto mb-6 ${!user ? 'text-amber-500' : 'text-red-500'}`} />
+          <h1 className="text-2xl font-editorial font-bold mb-4">
+            {!user ? "Authentication Required" : "Access Denied"}
+          </h1>
+          
+          <div className="text-slate-500 mb-8 space-y-3">
+            <p>
+              {!user 
+                ? "You must be signed in with an admin account to access the dashboard." 
+                : `You are signed in as ${user.email}, but this account does not have admin privileges.`
+              }
+            </p>
+            
+            {(isErrorPopupBlocked || isErrorInternal) && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded text-amber-800 text-xs text-left animate-in fade-in slide-in-from-top-1">
+                <span className="font-bold flex items-center gap-1 mb-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Browser Restriction Detected
+                </span>
+                {isErrorPopupBlocked 
+                  ? "Your browser blocked the login popup. This often happens inside the preview pane."
+                  : "An internal security error occurred. This is common when connecting to Google Auth inside an iframe."
+                }
+                <p className="mt-2 font-bold underline">
+                  Click the "Open in new tab" icon (↗) at the top right of the preview to fix this.
+                </p>
+              </div>
+            )}
+            
+            {error && !isErrorPopupBlocked && !isErrorInternal && (
+              <p className="p-3 bg-red-50 border border-red-100 rounded text-red-600 text-xs text-left">
+                <strong>Error:</strong> {error}
+              </p>
+            )}
+          </div>
+          
+          <div className="flex flex-col gap-4">
+            {!user && (
+              <button 
+                onClick={async () => {
+                  setError(null);
+                  try {
+                    await signInWithGoogle();
+                  } catch (err: any) {
+                    setError(err.message);
+                  }
+                }}
+                className="bg-black text-white px-6 py-4 hover:bg-brand-accent transition-all font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 group shadow-lg hover:shadow-brand-accent/20"
+              >
+                Sign In with Google
+                <Sparkles size={14} className="group-hover:scale-125 transition-transform" />
+              </button>
+            )}
+            
+            <Link to="/" className="inline-flex items-center justify-center gap-2 text-slate-400 hover:text-black font-bold uppercase tracking-widest text-[10px] transition-colors">
+              <ArrowLeft size={14} /> Back to Home
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -603,14 +658,46 @@ export default function AdminDashboard() {
               onClick={async () => {
                 setLoading(true);
                 setError(null);
+                const status = getFirebaseStatus();
+                console.log("Firebase Status Log:", status);
+                
                 try {
-                  const { doc, setDoc, deleteDoc } = await import("firebase/firestore");
+                  const { doc, setDoc, deleteDoc, getDoc } = await import("firebase/firestore");
+                  
+                  const diagInfo = [
+                    `Project: ${status.projectId}`,
+                    `Configured: ${status.isConfigured}`,
+                    `Using local config: ${status.isLocalConfig}`,
+                    `Missing Vars: ${status.missingVars.join(', ') || 'None'}`
+                  ].join('\n');
+                  
+                  console.log("Diagnostic Info:\n" + diagInfo);
+                  
                   const testRef = doc(db, "test", "connection_debug_" + Date.now());
-                  await withTimeout(setDoc(testRef, { test: true, time: Date.now() }));
-                  await withTimeout(deleteDoc(testRef));
-                  alert("Firestore Connection Success! Read/Write operations are working.");
+                  
+                  // Step 1: Write
+                  console.log("Testing write...");
+                  await withTimeout(setDoc(testRef, { test: true, time: Date.now() }), 10000);
+                  
+                  // Step 2: Read
+                  console.log("Testing read...");
+                  await withTimeout(getDoc(testRef), 10000);
+                  
+                  // Step 3: Delete
+                  console.log("Testing delete...");
+                  await withTimeout(deleteDoc(testRef), 10000);
+                  
+                  alert("Firestore Connection Success! Read/Write operations are working.\n\n" + diagInfo);
                 } catch (err: any) {
-                  setError("Firestore Test Failed: " + err.message);
+                  const errMsg = err.message || String(err);
+                  console.error("Debug Test Failed:", err);
+                  
+                  let detailedError = "Firestore Test Failed: " + errMsg;
+                  if (errMsg.includes("timed out")) {
+                    detailedError += "\n\nTROUBLESHOOTING:\n1. If on Vercel, ensure ALL environment variables are set and VITE_ prefixed.\n2. Ensure your IP is not blocked by a firewall.\n3. Verify your Firestore rules allow write access.\n4. Check if your Firebase project is active.";
+                  }
+                  setError(detailedError);
+                  alert(detailedError);
                 } finally {
                   setLoading(false);
                 }
