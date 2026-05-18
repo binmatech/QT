@@ -2,7 +2,8 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import firebaseConfigJson from '../../firebase-applet-config.json';
+const firebaseConfigs = import.meta.glob('../../firebase-applet-config.json', { eager: true });
+const firebaseConfigJson = (Object.values(firebaseConfigs)[0] as any)?.default || {};
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfigJson.apiKey,
