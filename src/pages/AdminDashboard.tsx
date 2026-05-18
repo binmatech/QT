@@ -602,8 +602,20 @@ export default function AdminDashboard() {
                 </div>
                 <p className="mt-4 text-[11px] text-amber-600 italic">
                   Tip: Copy these from your local <code>firebase-applet-config.json</code> or your Firebase Console. 
-                  Also, ensure you have configured <strong className="underline">CORS</strong> in the Google Cloud Console for your bucket if images are still not appearing.
+                  Also, ensure you have configured <strong className="underline">CORS</strong> in the Google Cloud Console for your bucket if images are still not appearing. 
+                  In the Google Cloud API Explorer for CORS PATCH, the <code className="bg-white/40 px-1 rounded">bucket</code> should be your bucket name (e.g. <code>{getFirebaseStatus().projectId}.firebasestorage.app</code>).
                 </p>
+                <div className="mt-6 p-4 bg-white/40 rounded border border-amber-200">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-3">Vercel Environment Setup</p>
+                  <p className="text-[11px] text-amber-700 mb-3">Copy your settings below and paste them into Vercel Settings {'>'} Environment Variables:</p>
+                  <div className="space-y-1 font-mono text-[9px] text-amber-900 break-all select-all">
+                    <p>VITE_FIREBASE_API_KEY=your_key</p>
+                    <p>VITE_FIREBASE_AUTH_DOMAIN={getFirebaseStatus().projectId}.firebaseapp.com</p>
+                    <p>VITE_FIREBASE_PROJECT_ID={getFirebaseStatus().projectId}</p>
+                    <p>VITE_FIREBASE_STORAGE_BUCKET={getFirebaseStatus().projectId}.firebasestorage.app</p>
+                    <p>VITE_FIREBASE_APP_ID=your_app_id</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
