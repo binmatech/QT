@@ -1,14 +1,15 @@
-import { collection, query, getDocs, where, limit, orderBy, Timestamp, addDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, where, limit, orderBy, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db, OperationType, handleFirestoreError } from '../lib/firebase';
 import { Article } from '../types';
 import { ARTICLES } from '../constants';
+import { createDocument, deleteDocument, withTimeout } from '../lib/firestoreUtils';
 
 const ARTICLES_COLLECTION = 'articles';
 
 export const getArticleById = async (id: string) => {
   try {
     const docRef = doc(db, ARTICLES_COLLECTION, id);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await withTimeout(getDoc(docRef));
     
     if (docSnap.exists()) {
       return {
@@ -41,7 +42,7 @@ export const getArticles = async (featuredOnly = false) => {
       );
     }
 
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await withTimeout(getDocs(q));
     const articles = querySnapshot.docs.map(doc => ({
       ...doc.data(),
       id: doc.id
@@ -92,28 +93,15 @@ export const getTrendingArticles = async () => {
 };
 
 export const createArticle = async (articleData: Omit<Article, 'id' | 'createdAt'>) => {
-  try {
-    const docRef = await addDoc(collection(db, ARTICLES_COLLECTION), {
-      ...articleData,
-      createdAt: Timestamp.now(),
-    });
-    return docRef.id;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, ARTICLES_COLLECTION);
-  }
+  const docRef = await createDocument(ARTICLES_COLLECTION, articleData);
+  return docRef?.id;
 };
 
 export const deleteArticle = async (articleId: string) => {
-  try {
-    if (typeof articleId !== 'string') {
-      throw new Error(`Invalid article ID type: ${typeof articleId}. ID must be a string.`);
-    }
-    await deleteDoc(doc(db, ARTICLES_COLLECTION, articleId));
-    return true;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, ARTICLES_COLLECTION);
-    return false;
+  if (typeof articleId !== 'string') {
+    throw new Error(`Invalid article ID type: ${typeof articleId}. ID must be a string.`);
   }
+  return await deleteDocument(ARTICLES_COLLECTION, articleId);
 };
 
 export const seedDatabase = async (userId: string) => {
