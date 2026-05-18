@@ -36,6 +36,7 @@ const app = initializeApp(firebaseConfig);
 // Improved Firestore initialization with long-polling to prevent timeouts in restrictive networks (common in Vercel/Iframe environments)
 export const db = initializeFirestore(app, {
   experimentalAutoDetectLongPolling: true,
+  useFetchStreams: false, 
 }, firebaseConfig.firestoreDatabaseId || '(default)');
 
 export const auth = getAuth(app);

@@ -158,6 +158,56 @@ export default function AdminDashboard() {
     contributionsCount: 0
   });
 
+  const uploadImage = async (file: File): Promise<string> => {
+    console.log("Starting upload for file:", file.name, "Size:", file.size);
+    if (!auth.currentUser) {
+      throw new Error("You must be logged in to upload images.");
+    }
+
+    if (!storage.app.options.storageBucket) {
+      throw new Error("ERROR: Storage bucket not configured.");
+    }
+    
+    try {
+      const storageRef = ref(storage, `articles/${Date.now()}_${file.name}`);
+      console.log("Storage reference created:", storageRef.fullPath);
+      
+      return new Promise((resolve, reject) => {
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        uploadTask.on(
+          "state_changed",
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log("Upload progress:", progress, "%", "State:", snapshot.state);
+            setUploadProgress(progress);
+          },
+          (err) => {
+            console.error("Storage Error Detail:", err);
+            if (err.code === 'storage/unauthorized') {
+              reject(new Error("Firebase Storage permissions denied. Check your Storage rules."));
+            } else {
+              reject(err);
+            }
+          },
+          async () => {
+            console.log("Upload completed successfully!");
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(downloadURL);
+            } catch (urlErr) {
+              console.error("Error getting download URL:", urlErr);
+              reject(new Error("Failed to retrieve image URL after upload."));
+            }
+          }
+        );
+      });
+    } catch (err: any) {
+      console.error("Outer upload error catch:", err);
+      throw err;
+    }
+  };
+
   const [spotlightFormData, setSpotlightFormData] = useState({
     founderName: "",
     companyName: "",
@@ -254,75 +304,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const uploadImage = async (file: File): Promise<string> => {
-    console.log("Starting upload for file:", file.name, "Size:", file.size);
-    if (!auth.currentUser) {
-      throw new Error("You must be logged in to upload images.");
-    }
-
-    if (!storage.app.options.storageBucket) {
-      throw new Error("ERROR: Storage bucket not configured. If you are deploying to Vercel, make sure you have added the VITE_FIREBASE_STORAGE_BUCKET environment variable. If this is a new project, you also need to enable Storage in the Firebase Console.");
-    }
-    
-    try {
-      const storageRef = ref(storage, `articles/${Date.now()}_${file.name}`);
-      console.log("Storage reference created:", storageRef.fullPath);
-      
-      return new Promise((resolve, reject) => {
-        const uploadTask = uploadBytesResumable(storageRef, file);
-
-        let hasHandled = false;
-        
-        // Timeout after 90 seconds if still at 0 bytes transferred
-        const timeout = setTimeout(() => {
-          if (!hasHandled && uploadTask.snapshot.bytesTransferred === 0) {
-            hasHandled = true;
-            uploadTask.cancel();
-            reject(new Error("UPLOAD BLOCKED: Storage appears uninitialized. This often means you need to go to your Firebase Console -> Storage and click 'Get Started'. If you are on Vercel, ensure VITE_FIREBASE_STORAGE_BUCKET is correctly set."));
-          }
-        }, 90000);
-
-        uploadTask.on(
-          "state_changed",
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            console.log("Upload progress:", progress, "%", "State:", snapshot.state);
-            setUploadProgress(progress);
-          },
-          (err) => {
-            console.error("Storage Error Detail:", err);
-            clearTimeout(timeout);
-            hasHandled = true;
-            if (err.code === 'storage/unauthorized') {
-              reject(new Error("Firebase Storage permissions denied. Check your Storage rules in the Firebase Console. They should allow authenticated writes."));
-            } else if (err.code === 'storage/retry-limit-exceeded') {
-              reject(new Error("Upload failed multiple times. Check your internet connection."));
-            } else if (err.code === 'storage/unknown' && err.message.includes('bucket')) {
-              reject(new Error("Storage bucket not found or incorrect. Double check your VITE_FIREBASE_STORAGE_BUCKET environment variable."));
-            } else {
-              reject(err);
-            }
-          },
-          async () => {
-            console.log("Upload completed successfully!");
-            clearTimeout(timeout);
-            hasHandled = true;
-            try {
-              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(downloadURL);
-            } catch (urlErr) {
-              console.error("Error getting download URL:", urlErr);
-              reject(new Error("Failed to retrieve image URL after upload. Check your Storage bucket settings."));
-            }
-          }
-        );
-      });
-    } catch (err: any) {
-      console.error("Outer upload error catch:", err);
-      throw err;
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -379,7 +360,6 @@ export default function AdminDashboard() {
       setError(errorMessage);
     } finally {
       setLoading(false);
-      setUploading(false);
     }
   };
 
@@ -538,7 +518,6 @@ export default function AdminDashboard() {
       setError(errorMessage);
     } finally {
       setLoading(false);
-      setUploading(false);
     }
   };
 
@@ -648,12 +627,6 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-6">
-            {!getFirebaseStatus().hasStorage && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 text-amber-600 border border-amber-200 text-[10px] font-bold uppercase tracking-widest rounded animate-pulse">
-                <AlertCircle size={14} />
-                Bucket Missing (Check Vercel Env)
-              </div>
-            )}
             <button 
               onClick={async () => {
                 setLoading(true);
@@ -677,15 +650,15 @@ export default function AdminDashboard() {
                   
                   // Step 1: Write
                   console.log("Testing write...");
-                  await withTimeout(setDoc(testRef, { test: true, time: Date.now() }), 10000);
+                  await withTimeout(setDoc(testRef, { test: true, time: Date.now() }), 30000);
                   
                   // Step 2: Read
                   console.log("Testing read...");
-                  await withTimeout(getDoc(testRef), 10000);
+                  await withTimeout(getDoc(testRef), 30000);
                   
                   // Step 3: Delete
                   console.log("Testing delete...");
-                  await withTimeout(deleteDoc(testRef), 10000);
+                  await withTimeout(deleteDoc(testRef), 30000);
                   
                   alert("Firestore Connection Success! Read/Write operations are working.\n\n" + diagInfo);
                 } catch (err: any) {
@@ -945,7 +918,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                <button 
+                 <button 
                   disabled={loading || uploading}
                   type="submit"
                   className="w-full py-5 bg-black text-white font-bold uppercase tracking-[0.3em] hover:bg-brand-accent transition-colors disabled:bg-slate-300 flex items-center justify-center gap-3"
@@ -1049,7 +1022,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                <div className="space-y-2">
+                 <div className="space-y-2">
                   <label className="editorial-label">Event Image</label>
                   <div 
                     onClick={() => fileInputRef.current?.click()}
@@ -1093,7 +1066,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                <button 
+                 <button 
                   disabled={loading || uploading}
                   type="submit"
                   className="w-full py-5 bg-black text-white font-bold uppercase tracking-[0.3em] hover:bg-brand-accent transition-colors disabled:bg-slate-300 flex items-center justify-center gap-3"
@@ -1202,7 +1175,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                 <div className="space-y-2">
                   <label className="editorial-label">Expert Headshot</label>
                   <div 
                     onClick={() => fileInputRef.current?.click()}
@@ -1253,7 +1226,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                <button 
+                 <button 
                   disabled={loading || uploading}
                   type="submit"
                   className="w-full py-5 bg-black text-white font-bold uppercase tracking-[0.3em] hover:bg-brand-accent transition-colors disabled:bg-slate-300 flex items-center justify-center gap-3"
@@ -1346,7 +1319,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                <div className="space-y-2">
+                 <div className="space-y-2">
                   <label className="editorial-label">Spotlight Visual</label>
                   <div 
                     onClick={() => fileInputRef.current?.click()}
@@ -1387,7 +1360,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                <button 
+                 <button 
                   disabled={loading || uploading}
                   type="submit"
                   className="w-full py-5 bg-black text-white font-bold uppercase tracking-[0.3em] hover:bg-brand-accent transition-colors disabled:bg-slate-300 flex items-center justify-center gap-3"
