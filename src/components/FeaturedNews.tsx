@@ -20,7 +20,7 @@ export default function FeaturedNews() {
   const featured = articles.find(a => a.featured);
   const others = articles.filter(a => !a.featured);
 
-  if (loading && articles.length === 0) {
+  if (loading) {
     return (
       <section className="py-24 px-6 md:px-12 bg-white">
         <div className="max-w-7xl mx-auto animate-pulse">
@@ -36,6 +36,8 @@ export default function FeaturedNews() {
       </section>
     );
   }
+
+  if (articles.length === 0) return null;
 
   return (
     <section className="py-24 px-6 md:px-12 bg-white">

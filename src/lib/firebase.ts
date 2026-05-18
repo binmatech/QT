@@ -2,8 +2,12 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+
+// Robust loading of the local config file if it exists.
+// During production builds where this file is gitignored, we rely on VITE_ env vars.
 const firebaseConfigs = import.meta.glob('../../firebase-applet-config.json', { eager: true });
-const firebaseConfigJson = (Object.values(firebaseConfigs)[0] as any)?.default || {};
+const configFiles = Object.values(firebaseConfigs);
+const firebaseConfigJson = (configFiles.length > 0 ? (configFiles[0] as any).default : {}) || {};
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfigJson.apiKey,
@@ -15,6 +19,13 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfigJson.measurementId,
   firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfigJson.firestoreDatabaseId
 };
+
+// Check if we have the minimum required config
+const hasRequiredConfig = firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId;
+
+if (!hasRequiredConfig) {
+  console.warn("Firebase configuration is missing required fields. Ensure environment variables are set correctly.");
+}
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
