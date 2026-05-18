@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, browserPopupRedirectResolver } from 'firebase/auth';
+import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Robust loading of the local config file if it exists.
@@ -32,7 +32,12 @@ if (!firebaseConfig.storageBucket) {
 }
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
+
+// Improved Firestore initialization with long-polling to prevent timeouts in restrictive networks (common in Vercel/Iframe environments)
+export const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+}, firebaseConfig.firestoreDatabaseId || '(default)');
+
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
@@ -76,17 +81,42 @@ async function testConnection() {
 }
 testConnection();
 
+let signInPromise: Promise<any> | null = null;
+
 export const signInWithGoogle = async () => {
-  try {
-    return await signInWithPopup(auth, googleProvider);
-  } catch (error: any) {
-    if (error.code === 'auth/popup-closed-by-user') {
-      // Silently handle popup closed by user
-      return null;
-    }
-    console.error("Authentication error:", error);
-    throw error;
+  if (signInPromise) {
+    return signInPromise;
   }
+
+  signInPromise = (async () => {
+    try {
+      // Use the redirect resolver for better iframe compatibility
+      const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+      return result;
+    } catch (error: any) {
+      const code = error.code;
+      const message = error.message || "";
+
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        return null;
+      }
+      
+      if (code === 'auth/popup-blocked') {
+        throw new Error("POPUP_BLOCKED");
+      }
+
+      if (message.includes('INTERNAL ASSERTION FAILED')) {
+        throw new Error("FIREBASE_INTERNAL_ERROR");
+      }
+
+      console.error("Authentication error:", error);
+      throw error;
+    } finally {
+      signInPromise = null;
+    }
+  })();
+
+  return signInPromise;
 };
 export const logout = () => signOut(auth);
 
