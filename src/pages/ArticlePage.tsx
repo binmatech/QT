@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "motion/react";
+import { Helmet } from "react-helmet-async";
 import ReactMarkdown from "react-markdown";
 import DOMPurify from "dompurify";
-import { ArrowLeft, Clock, Calendar, User, Share2, Bookmark, MessageSquare } from "lucide-react";
+import { ArrowLeft, Clock, Calendar, Share2, Bookmark, MessageSquare, Check } from "lucide-react";
 import { getArticleById } from "../services/articleService";
 import { Article } from "../types";
 import Navbar from "../components/Navbar";
@@ -13,6 +14,7 @@ export default function ArticlePage() {
   const { id } = useParams<{ id: string }>();
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchArticle = async () => {
@@ -25,6 +27,28 @@ export default function ArticlePage() {
     fetchArticle();
     window.scrollTo(0, 0);
   }, [id]);
+
+  const handleShare = async () => {
+    if (!article) return;
+    
+    const shareData = {
+      title: article.title,
+      text: article.excerpt,
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch (err) {
+      console.error("Error sharing:", err);
+    }
+  };
 
   if (loading) {
     return (
@@ -64,6 +88,19 @@ export default function ArticlePage() {
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
+      
+      {article && (
+        <Helmet>
+          <title>{article.title} | Quotient Africa</title>
+          <meta name="description" content={article.excerpt} />
+          <meta property="og:title" content={article.title} />
+          <meta property="og:description" content={article.excerpt} />
+          <meta property="og:image" content={article.image} />
+          <meta name="twitter:title" content={article.title} />
+          <meta name="twitter:description" content={article.excerpt} />
+          <meta name="twitter:image" content={article.image} />
+        </Helmet>
+      )}
       
       <main className="pt-32 pb-24">
         {/* Progress Bar (Visual only for now) */}
@@ -117,8 +154,16 @@ export default function ArticlePage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <button className="p-3 border border-slate-200 text-slate-400 hover:text-brand-accent hover:border-brand-accent transition-all rounded-full">
-                  <Share2 size={18} />
+                <button 
+                  onClick={handleShare}
+                  className="p-3 border border-slate-200 text-slate-400 hover:text-brand-accent hover:border-brand-accent transition-all rounded-full flex items-center gap-2 relative group"
+                >
+                  {copied ? <Check size={18} className="text-green-500" /> : <Share2 size={18} />}
+                  {copied && (
+                    <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] py-1 px-2 rounded whitespace-nowrap">
+                      Link Copied!
+                    </span>
+                  )}
                 </button>
                 <button className="p-3 border border-slate-200 text-slate-400 hover:text-brand-accent hover:border-brand-accent transition-all rounded-full">
                   <Bookmark size={18} />
