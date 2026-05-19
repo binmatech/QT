@@ -8,19 +8,19 @@ export const ARTICLES = [
     authorDesignation: "FinTech Editor",
     date: "May 15, 2026",
     readTime: "8 min",
-    image: "https://images.unsplash.com/photo-1518186239124-7970ef33c793?auto=format&fit=crop&q=80&w=1200",
+    image: "/src/assets/images/news_fintech_1779042527249.png",
     featured: true
   },
   {
     id: "2",
-    title: "Sustainable Architecture: Building the Net-Zero Startups of tomorrow",
+    title: "Sustainable Architecture: Building the Net-Zero Startups of Tomorrow",
     excerpt: "Exploring the intersection of physical infrastructure and the rapidly evolving green tech ecosystem.",
     category: "Startups",
     author: "James Chen",
     authorDesignation: "Startup Consultant",
     date: "May 14, 2026",
     readTime: "5 min",
-    image: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1200",
+    image: "/src/assets/images/news_startup_1779042563855.png",
     featured: false
   },
   {
@@ -32,7 +32,7 @@ export const ARTICLES = [
     authorDesignation: "Hardware Tech Lead",
     date: "May 12, 2026",
     readTime: "12 min",
-    image: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200",
+    image: "/src/assets/images/news_tech_1779042545242.png",
     featured: false
   },
   {

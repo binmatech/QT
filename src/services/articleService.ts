@@ -1,15 +1,14 @@
-import { collection, query, getDocs, where, limit, orderBy, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, where, limit, orderBy, Timestamp, addDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db, OperationType, handleFirestoreError } from '../lib/firebase';
 import { Article } from '../types';
 import { ARTICLES } from '../constants';
-import { createDocument, deleteDocument, withTimeout } from '../lib/firestoreUtils';
 
 const ARTICLES_COLLECTION = 'articles';
 
 export const getArticleById = async (id: string) => {
   try {
     const docRef = doc(db, ARTICLES_COLLECTION, id);
-    const docSnap = await withTimeout(getDoc(docRef));
+    const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
       return {
@@ -18,10 +17,13 @@ export const getArticleById = async (id: string) => {
       } as Article;
     }
     
-    return null;
+    // Fallback to static articles
+    const staticArticle = ARTICLES.find(a => a.id.toString() === id.toString());
+    return staticArticle ? { ...staticArticle, content: "This is a fallback preview of the article content. Please sign in and seed the database for the full experience." } as Article : null;
   } catch (error) {
     console.error("Error fetching article:", error);
-    return null;
+    const staticArticle = ARTICLES.find(a => a.id.toString() === id.toString());
+    return staticArticle ? { ...staticArticle, content: "This is a fallback preview of the article content. Please sign in and seed the database for the full experience." } as Article : null;
   }
 };
 
@@ -42,16 +44,19 @@ export const getArticles = async (featuredOnly = false) => {
       );
     }
 
-    const querySnapshot = await withTimeout(getDocs(q));
+    const querySnapshot = await getDocs(q);
     const articles = querySnapshot.docs.map(doc => ({
       ...doc.data(),
       id: doc.id
     })) as Article[];
 
+    if (articles.length === 0) {
+      return featuredOnly ? ARTICLES.filter(a => a.featured) : ARTICLES;
+    }
     return articles;
   } catch (error) {
     console.error("Error fetching articles:", error);
-    return [];
+    return featuredOnly ? ARTICLES.filter(a => a.featured) : ARTICLES;
   }
 };
 
@@ -93,15 +98,28 @@ export const getTrendingArticles = async () => {
 };
 
 export const createArticle = async (articleData: Omit<Article, 'id' | 'createdAt'>) => {
-  const docRef = await createDocument(ARTICLES_COLLECTION, articleData);
-  return docRef?.id;
+  try {
+    const docRef = await addDoc(collection(db, ARTICLES_COLLECTION), {
+      ...articleData,
+      createdAt: Timestamp.now(),
+    });
+    return docRef.id;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, ARTICLES_COLLECTION);
+  }
 };
 
 export const deleteArticle = async (articleId: string) => {
-  if (typeof articleId !== 'string') {
-    throw new Error(`Invalid article ID type: ${typeof articleId}. ID must be a string.`);
+  try {
+    if (typeof articleId !== 'string') {
+      throw new Error(`Invalid article ID type: ${typeof articleId}. ID must be a string.`);
+    }
+    await deleteDoc(doc(db, ARTICLES_COLLECTION, articleId));
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, ARTICLES_COLLECTION);
+    return false;
   }
-  return await deleteDocument(ARTICLES_COLLECTION, articleId);
 };
 
 export const seedDatabase = async (userId: string) => {

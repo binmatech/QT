@@ -1,14 +1,13 @@
-import { collection, query, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, query, getDocs, orderBy, Timestamp, addDoc, doc, deleteDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { db, OperationType, handleFirestoreError } from '../lib/firebase';
 import { NewsEvent } from '../types';
-import { createDocument, deleteDocument, updateDocument, withTimeout } from '../lib/firestoreUtils';
 
 const EVENTS_COLLECTION = 'events';
 
 export const getEventById = async (id: string) => {
   try {
     const docRef = doc(db, EVENTS_COLLECTION, id);
-    const docSnap = await withTimeout(getDoc(docRef));
+    const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
       return {
@@ -30,7 +29,7 @@ export const getEvents = async () => {
       orderBy('date', 'asc')
     );
 
-    const querySnapshot = await withTimeout(getDocs(q));
+    const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
       ...doc.data(),
       id: doc.id
@@ -42,14 +41,34 @@ export const getEvents = async () => {
 };
 
 export const createEvent = async (eventData: Omit<NewsEvent, 'id' | 'createdAt'>) => {
-  const docRef = await createDocument(EVENTS_COLLECTION, eventData);
-  return docRef?.id;
+  try {
+    const docRef = await addDoc(collection(db, EVENTS_COLLECTION), {
+      ...eventData,
+      createdAt: Timestamp.now(),
+    });
+    return docRef.id;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, EVENTS_COLLECTION);
+  }
 };
 
 export const updateEvent = async (eventId: string, eventData: Partial<NewsEvent>) => {
-  return await updateDocument(EVENTS_COLLECTION, eventId, eventData);
+  try {
+    const docRef = doc(db, EVENTS_COLLECTION, eventId);
+    await updateDoc(docRef, eventData);
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, EVENTS_COLLECTION);
+    return false;
+  }
 };
 
 export const deleteEvent = async (eventId: string) => {
-  return await deleteDocument(EVENTS_COLLECTION, eventId);
+  try {
+    await deleteDoc(doc(db, EVENTS_COLLECTION, eventId));
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, EVENTS_COLLECTION);
+    return false;
+  }
 };

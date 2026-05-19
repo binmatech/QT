@@ -10,8 +10,7 @@ import { Article, NewsEvent, Expert, SpotlightStory } from "../types";
 import { LayoutDashboard, FilePlus, LogOut, CheckCircle, AlertCircle, ArrowLeft, Upload, Image as ImageIcon, Loader2, Trash2, Calendar, Users, Twitter, Linkedin, ExternalLink, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { storage, auth, getFirebaseStatus, db, signInWithGoogle } from "../lib/firebase";
-import { withTimeout } from "../lib/firestoreUtils";
+import { storage, auth } from "../lib/firebase";
 
 import RichTextEditor from "../components/RichTextEditor";
 
@@ -158,56 +157,6 @@ export default function AdminDashboard() {
     contributionsCount: 0
   });
 
-  const uploadImage = async (file: File): Promise<string> => {
-    console.log("Starting upload for file:", file.name, "Size:", file.size);
-    if (!auth.currentUser) {
-      throw new Error("You must be logged in to upload images.");
-    }
-
-    if (!storage.app.options.storageBucket) {
-      throw new Error("ERROR: Storage bucket not configured.");
-    }
-    
-    try {
-      const storageRef = ref(storage, `articles/${Date.now()}_${file.name}`);
-      console.log("Storage reference created:", storageRef.fullPath);
-      
-      return new Promise((resolve, reject) => {
-        const uploadTask = uploadBytesResumable(storageRef, file);
-
-        uploadTask.on(
-          "state_changed",
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            console.log("Upload progress:", progress, "%", "State:", snapshot.state);
-            setUploadProgress(progress);
-          },
-          (err) => {
-            console.error("Storage Error Detail:", err);
-            if (err.code === 'storage/unauthorized') {
-              reject(new Error("Firebase Storage permissions denied. Check your Storage rules."));
-            } else {
-              reject(err);
-            }
-          },
-          async () => {
-            console.log("Upload completed successfully!");
-            try {
-              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(downloadURL);
-            } catch (urlErr) {
-              console.error("Error getting download URL:", urlErr);
-              reject(new Error("Failed to retrieve image URL after upload."));
-            }
-          }
-        );
-      });
-    } catch (err: any) {
-      console.error("Outer upload error catch:", err);
-      throw err;
-    }
-  };
-
   const [spotlightFormData, setSpotlightFormData] = useState({
     founderName: "",
     companyName: "",
@@ -218,70 +167,15 @@ export default function AdminDashboard() {
   });
 
   if (!user || user.email !== ADMIN_EMAIL) {
-    const isErrorPopupBlocked = error === "POPUP_BLOCKED";
-    const isErrorInternal = error === "FIREBASE_INTERNAL_ERROR";
-
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-        <div className="max-w-md w-full bg-white p-10 border border-slate-200 text-center shadow-xl">
-          <AlertCircle size={48} className={`mx-auto mb-6 ${!user ? 'text-amber-500' : 'text-red-500'}`} />
-          <h1 className="text-2xl font-editorial font-bold mb-4">
-            {!user ? "Authentication Required" : "Access Denied"}
-          </h1>
-          
-          <div className="text-slate-500 mb-8 space-y-3">
-            <p>
-              {!user 
-                ? "You must be signed in with an admin account to access the dashboard." 
-                : `You are signed in as ${user.email}, but this account does not have admin privileges.`
-              }
-            </p>
-            
-            {(isErrorPopupBlocked || isErrorInternal) && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded text-amber-800 text-xs text-left animate-in fade-in slide-in-from-top-1">
-                <span className="font-bold flex items-center gap-1 mb-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  Browser Restriction Detected
-                </span>
-                {isErrorPopupBlocked 
-                  ? "Your browser blocked the login popup. This often happens inside the preview pane."
-                  : "An internal security error occurred. This is common when connecting to Google Auth inside an iframe."
-                }
-                <p className="mt-2 font-bold underline">
-                  Click the "Open in new tab" icon (↗) at the top right of the preview to fix this.
-                </p>
-              </div>
-            )}
-            
-            {error && !isErrorPopupBlocked && !isErrorInternal && (
-              <p className="p-3 bg-red-50 border border-red-100 rounded text-red-600 text-xs text-left">
-                <strong>Error:</strong> {error}
-              </p>
-            )}
-          </div>
-          
-          <div className="flex flex-col gap-4">
-            {!user && (
-              <button 
-                onClick={async () => {
-                  setError(null);
-                  try {
-                    await signInWithGoogle();
-                  } catch (err: any) {
-                    setError(err.message);
-                  }
-                }}
-                className="bg-black text-white px-6 py-4 hover:bg-brand-accent transition-all font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 group shadow-lg hover:shadow-brand-accent/20"
-              >
-                Sign In with Google
-                <Sparkles size={14} className="group-hover:scale-125 transition-transform" />
-              </button>
-            )}
-            
-            <Link to="/" className="inline-flex items-center justify-center gap-2 text-slate-400 hover:text-black font-bold uppercase tracking-widest text-[10px] transition-colors">
-              <ArrowLeft size={14} /> Back to Home
-            </Link>
-          </div>
+        <div className="max-w-md w-full bg-white p-10 border border-slate-200 text-center">
+          <AlertCircle size={48} className="text-red-500 mx-auto mb-6" />
+          <h1 className="text-2xl font-editorial font-bold mb-4">Access Denied</h1>
+          <p className="text-slate-500 mb-8">You do not have permission to access the admin dashboard.</p>
+          <Link to="/" className="inline-flex items-center gap-2 text-brand-accent font-bold uppercase tracking-widest text-xs">
+            <ArrowLeft size={16} /> Back to Home
+          </Link>
         </div>
       </div>
     );
@@ -301,6 +195,68 @@ export default function AdminDashboard() {
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async (file: File): Promise<string> => {
+    console.log("Starting upload for file:", file.name, "Size:", file.size);
+    if (!auth.currentUser) {
+      throw new Error("You must be logged in to upload images.");
+    }
+    
+    try {
+      const storageRef = ref(storage, `articles/${Date.now()}_${file.name}`);
+      console.log("Storage reference created:", storageRef.fullPath);
+      
+      // Using uploadBytes for potentially better reliability/simpler error handling
+      // while still using a manual timeout check if needed.
+      // But we'll try uploadBytesResumable again with extra guard.
+      
+      return new Promise((resolve, reject) => {
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        let hasHandled = false;
+        
+        // Timeout after 90 seconds if still at 0 bytes transferred
+        const timeout = setTimeout(() => {
+          if (!hasHandled && uploadTask.snapshot.bytesTransferred === 0) {
+            hasHandled = true;
+            uploadTask.cancel();
+            reject(new Error("UPLOAD BLOCKED: Storage appears uninitialized. Please go to your Firebase Console -> Storage and click 'Get Started' to activate the service."));
+          }
+        }, 90000);
+
+        uploadTask.on(
+          "state_changed",
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log("Upload progress:", progress, "%", "State:", snapshot.state);
+            setUploadProgress(progress);
+          },
+          (err) => {
+            console.error("Storage Error Detail:", err);
+            clearTimeout(timeout);
+            hasHandled = true;
+            if (err.code === 'storage/unauthorized') {
+              reject(new Error("Firebase Storage permissions denied. You may need to manually enable Storage rules in the Firebase Console."));
+            } else if (err.code === 'storage/retry-limit-exceeded') {
+              reject(new Error("Upload failed multiple times. Check your internet connection."));
+            } else {
+              reject(err);
+            }
+          },
+          async () => {
+            console.log("Upload completed successfully!");
+            clearTimeout(timeout);
+            hasHandled = true;
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(downloadURL);
+          }
+        );
+      });
+    } catch (err: any) {
+      console.error("Outer upload error catch:", err);
+      throw err;
     }
   };
 
@@ -345,21 +301,10 @@ export default function AdminDashboard() {
       setImageFile(null);
       setImagePreview(null);
     } catch (err: any) {
-      let errorMessage = err.message || "Failed to create article";
-      
-      // Try to parse JSON error from firestore handler
-      try {
-        if (errorMessage.startsWith('{')) {
-          const parsed = JSON.parse(errorMessage);
-          errorMessage = parsed.error || errorMessage;
-        }
-      } catch (e) {
-        // Fallback to original message
-      }
-      
-      setError(errorMessage);
+      setError(err.message || "Failed to create article");
     } finally {
       setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -402,14 +347,7 @@ export default function AdminDashboard() {
       setImageFile(null);
       setImagePreview(null);
     } catch (err: any) {
-      let errorMessage = err.message || "Failed to create event";
-      try {
-        if (errorMessage.startsWith('{')) {
-          const parsed = JSON.parse(errorMessage);
-          errorMessage = parsed.error || errorMessage;
-        }
-      } catch (e) {}
-      setError(errorMessage);
+      setError(err.message || "Failed to create event");
     } finally {
       setLoading(false);
       setUploading(false);
@@ -456,14 +394,7 @@ export default function AdminDashboard() {
       setImageFile(null);
       setImagePreview(null);
     } catch (err: any) {
-      let errorMessage = err.message || "Failed to add expert";
-      try {
-        if (errorMessage.startsWith('{')) {
-          const parsed = JSON.parse(errorMessage);
-          errorMessage = parsed.error || errorMessage;
-        }
-      } catch (e) {}
-      setError(errorMessage);
+      setError(err.message || "Failed to add expert");
     } finally {
       setLoading(false);
       setUploading(false);
@@ -508,16 +439,10 @@ export default function AdminDashboard() {
       setImageFile(null);
       setImagePreview(null);
     } catch (err: any) {
-      let errorMessage = err.message || "Failed to create spotlight story";
-      try {
-        if (errorMessage.startsWith('{')) {
-          const parsed = JSON.parse(errorMessage);
-          errorMessage = parsed.error || errorMessage;
-        }
-      } catch (e) {}
-      setError(errorMessage);
+      setError(err.message || "Failed to create spotlight story");
     } finally {
       setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -628,58 +553,6 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-6">
             <button 
-              onClick={async () => {
-                setLoading(true);
-                setError(null);
-                const status = getFirebaseStatus();
-                console.log("Firebase Status Log:", status);
-                
-                try {
-                  const { doc, setDoc, deleteDoc, getDoc } = await import("firebase/firestore");
-                  
-                  const diagInfo = [
-                    `Project: ${status.projectId}`,
-                    `Configured: ${status.isConfigured}`,
-                    `Using local config: ${status.isLocalConfig}`,
-                    `Missing Vars: ${status.missingVars.join(', ') || 'None'}`
-                  ].join('\n');
-                  
-                  console.log("Diagnostic Info:\n" + diagInfo);
-                  
-                  const testRef = doc(db, "test", "connection_debug_" + Date.now());
-                  
-                  // Step 1: Write
-                  console.log("Testing write...");
-                  await withTimeout(setDoc(testRef, { test: true, time: Date.now() }), 30000);
-                  
-                  // Step 2: Read
-                  console.log("Testing read...");
-                  await withTimeout(getDoc(testRef), 30000);
-                  
-                  // Step 3: Delete
-                  console.log("Testing delete...");
-                  await withTimeout(deleteDoc(testRef), 30000);
-                  
-                  alert("Firestore Connection Success! Read/Write operations are working.\n\n" + diagInfo);
-                } catch (err: any) {
-                  const errMsg = err.message || String(err);
-                  console.error("Debug Test Failed:", err);
-                  
-                  let detailedError = "Firestore Test Failed: " + errMsg;
-                  if (errMsg.includes("timed out")) {
-                    detailedError += "\n\nTROUBLESHOOTING:\n1. If on Vercel, ensure ALL environment variables are set and VITE_ prefixed.\n2. Ensure your IP is not blocked by a firewall.\n3. Verify your Firestore rules allow write access.\n4. Check if your Firebase project is active.";
-                  }
-                  setError(detailedError);
-                  alert(detailedError);
-                } finally {
-                  setLoading(false);
-                }
-              }}
-              className="editorial-label text-blue-400 hover:text-blue-600 transition-colors"
-            >
-              Debug Connection
-            </button>
-            <button 
               onClick={() => {
                 if (user?.uid) {
                   import("../services/articleService").then(m => m.seedDatabase(user.uid));
@@ -697,72 +570,6 @@ export default function AdminDashboard() {
             </button>
           </div>
         </header>
-
-        {getFirebaseStatus().missingVars.length > 0 && (
-          <div className="mb-12 p-6 bg-amber-50 border border-amber-200 rounded-lg shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-amber-100 rounded-full text-amber-600">
-                <AlertCircle size={28} />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-editorial text-xl font-bold text-amber-900 mb-1 leading-tight">Vercel Deployment Sync Required</h3>
-                <p className="text-sm text-amber-700 mb-6 max-w-2xl">
-                  Your app works here because of a local config file, but <span className="font-bold underline">Vercel requires environment variables</span> to be set manually. Without these, your live site will be blank.
-                </p>
-                
-                <div className="grid md:grid-cols-2 gap-6 items-start">
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800">Connection Checklist</p>
-                    <div className="space-y-2">
-                      {Object.entries(getFirebaseStatus().vars).map(([name, exists]) => (
-                        <div key={name} className={`flex items-center justify-between p-2 rounded border text-[11px] font-mono ${exists ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-amber-200 text-amber-600'}`}>
-                          <span>{name}</span>
-                          <span className="flex items-center gap-1 font-bold">
-                            {exists ? <><CheckCircle size={12} /> Stored</> : <><AlertCircle size={12} /> MISSING</>}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-white/60 p-4 rounded border border-amber-200">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-3">Copy to Vercel Dashboard</p>
-                    <p className="text-[11px] text-amber-700 mb-4 italic">
-                      Go to Vercel {">"} Settings {">"} Environment Variables and add these:
-                    </p>
-                    <div className="space-y-1 font-mono text-[10px] text-amber-900 p-3 bg-white/40 rounded break-all select-all border border-amber-100">
-                      <p>VITE_FIREBASE_API_KEY=your_key</p>
-                      <p>VITE_FIREBASE_AUTH_DOMAIN={getFirebaseStatus().projectId}.firebaseapp.com</p>
-                      <p>VITE_FIREBASE_PROJECT_ID={getFirebaseStatus().projectId}</p>
-                      <p>VITE_FIREBASE_STORAGE_BUCKET={getFirebaseStatus().projectId}.firebasestorage.app</p>
-                      <p>VITE_FIREBASE_APP_ID=your_app_id</p>
-                    </div>
-                    <p className="mt-4 text-[10px] text-amber-600 leading-relaxed font-medium">
-                      * After adding these in Vercel, you must <span className="underline">Trigger a New Deployment</span> for changes to take effect.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-amber-200">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-3">Fix Missing Images (CORS Setup)</p>
-                  <p className="text-[11px] text-amber-700 mb-3">If images upload but don't show, paste this JSON into Google Cloud Console CORS Settings:</p>
-                  <pre className="text-[9px] font-mono text-amber-900 bg-white/30 p-2 rounded overflow-x-auto select-all border border-amber-100">
-{`{
-  "cors": [
-    {
-      "origin": ["*"],
-      "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
-      "responseHeader": ["Content-Type", "Authorization", "x-goog-resumable"],
-      "maxAgeSeconds": 3600
-    }
-  ]
-}`}
-                  </pre>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {view === 'create' ? (
           <section className="max-w-4xl">
@@ -918,7 +725,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                 <button 
+                <button 
                   disabled={loading || uploading}
                   type="submit"
                   className="w-full py-5 bg-black text-white font-bold uppercase tracking-[0.3em] hover:bg-brand-accent transition-colors disabled:bg-slate-300 flex items-center justify-center gap-3"
@@ -1022,7 +829,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                 <div className="space-y-2">
+                <div className="space-y-2">
                   <label className="editorial-label">Event Image</label>
                   <div 
                     onClick={() => fileInputRef.current?.click()}
@@ -1066,7 +873,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                 <button 
+                <button 
                   disabled={loading || uploading}
                   type="submit"
                   className="w-full py-5 bg-black text-white font-bold uppercase tracking-[0.3em] hover:bg-brand-accent transition-colors disabled:bg-slate-300 flex items-center justify-center gap-3"
@@ -1175,7 +982,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                 <div className="space-y-2">
+                <div className="space-y-2">
                   <label className="editorial-label">Expert Headshot</label>
                   <div 
                     onClick={() => fileInputRef.current?.click()}
@@ -1226,7 +1033,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                 <button 
+                <button 
                   disabled={loading || uploading}
                   type="submit"
                   className="w-full py-5 bg-black text-white font-bold uppercase tracking-[0.3em] hover:bg-brand-accent transition-colors disabled:bg-slate-300 flex items-center justify-center gap-3"
@@ -1319,7 +1126,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                 <div className="space-y-2">
+                <div className="space-y-2">
                   <label className="editorial-label">Spotlight Visual</label>
                   <div 
                     onClick={() => fileInputRef.current?.click()}
@@ -1360,7 +1167,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                 <button 
+                <button 
                   disabled={loading || uploading}
                   type="submit"
                   className="w-full py-5 bg-black text-white font-bold uppercase tracking-[0.3em] hover:bg-brand-accent transition-colors disabled:bg-slate-300 flex items-center justify-center gap-3"

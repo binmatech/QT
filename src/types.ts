@@ -22,7 +22,6 @@ export interface NewsEvent {
   date: string;
   time: string;
   image: string;
-  type?: string;
   registrationLink?: string;
   createdAt?: any;
 }
