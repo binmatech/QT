@@ -3,10 +3,8 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import localFirebaseConfig from '../../firebase-applet-config.json';
 
-// Use environment variables if available (for Vercel/Production), 
-// otherwise fall back to the local config file.
+// Access environment variables across different environments (Node/Vite)
 const getEnv = (key: string) => {
   if (typeof process !== 'undefined' && process.env && process.env[key]) {
     return process.env[key];
@@ -19,15 +17,20 @@ const getEnv = (key: string) => {
   return '';
 };
 
+// We dynamically construct the config to avoid build-time errors when the JSON file is missing
 const firebaseConfig = {
-  apiKey: getEnv('VITE_FIREBASE_API_KEY') || localFirebaseConfig.apiKey,
-  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN') || localFirebaseConfig.authDomain,
-  projectId: getEnv('VITE_FIREBASE_PROJECT_ID') || localFirebaseConfig.projectId,
-  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET') || localFirebaseConfig.storageBucket,
-  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID') || localFirebaseConfig.messagingSenderId,
-  appId: getEnv('VITE_FIREBASE_APP_ID') || localFirebaseConfig.appId,
-  firestoreDatabaseId: getEnv('VITE_FIREBASE_FIRESTORE_DATABASE_ID') || localFirebaseConfig.firestoreDatabaseId
+  apiKey: getEnv('VITE_FIREBASE_API_KEY'),
+  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnv('VITE_FIREBASE_APP_ID'),
+  firestoreDatabaseId: getEnv('VITE_FIREBASE_FIRESTORE_DATABASE_ID')
 };
+
+// If environment variables are missing, we could try to load from the local config 
+// ONLY if we are in a context that supports it (like dev).
+// Since the user is hitting build errors, we ensure the config object at least exists.
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
