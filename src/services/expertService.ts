@@ -1,14 +1,13 @@
-import { collection, query, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, query, getDocs, orderBy, Timestamp, addDoc, doc, deleteDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { db, OperationType, handleFirestoreError } from '../lib/firebase';
 import { Expert } from '../types';
-import { createDocument, deleteDocument, updateDocument, withTimeout } from '../lib/firestoreUtils';
 
 const EXPERTS_COLLECTION = 'experts';
 
 export const getExpertById = async (id: string) => {
   try {
     const docRef = doc(db, EXPERTS_COLLECTION, id);
-    const docSnap = await withTimeout(getDoc(docRef));
+    const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
       return {
@@ -30,7 +29,7 @@ export const getExperts = async () => {
       orderBy('name', 'asc')
     );
 
-    const querySnapshot = await withTimeout(getDocs(q));
+    const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
       ...doc.data(),
       id: doc.id
@@ -42,14 +41,34 @@ export const getExperts = async () => {
 };
 
 export const createExpert = async (expertData: Omit<Expert, 'id' | 'createdAt'>) => {
-  const docRef = await createDocument(EXPERTS_COLLECTION, expertData);
-  return docRef?.id;
+  try {
+    const docRef = await addDoc(collection(db, EXPERTS_COLLECTION), {
+      ...expertData,
+      createdAt: Timestamp.now(),
+    });
+    return docRef.id;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, EXPERTS_COLLECTION);
+  }
 };
 
 export const updateExpert = async (expertId: string, expertData: Partial<Expert>) => {
-  return await updateDocument(EXPERTS_COLLECTION, expertId, expertData);
+  try {
+    const docRef = doc(db, EXPERTS_COLLECTION, expertId);
+    await updateDoc(docRef, expertData);
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, EXPERTS_COLLECTION);
+    return false;
+  }
 };
 
 export const deleteExpert = async (expertId: string) => {
-  return await deleteDocument(EXPERTS_COLLECTION, expertId);
+  try {
+    await deleteDoc(doc(db, EXPERTS_COLLECTION, expertId));
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, EXPERTS_COLLECTION);
+    return false;
+  }
 };

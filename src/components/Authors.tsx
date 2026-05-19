@@ -18,17 +18,15 @@ export default function Authors() {
     fetchExperts();
   }, []);
 
-  if (loading) {
-    return (
-      <section className="py-24 px-6 md:px-12 bg-white border-t border-slate-100">
-        <div className="max-w-7xl mx-auto">
-          <div className="h-40 w-full bg-slate-50 animate-pulse" />
-        </div>
-      </section>
-    );
-  }
-
-  if (experts.length === 0) return null;
+  const displayExperts = experts.length > 0 ? experts : AUTHORS.map((author, idx) => ({
+    id: `static-${idx}`,
+    name: author.name,
+    title: author.role,
+    image: author.avatar,
+    bio: author.stats,
+    createdAt: new Date(),
+    contributionsCount: parseInt(author.stats.split(' ')[0]) || 12
+  })) as any[];
 
   return (
     <section className="py-24 px-6 md:px-12 bg-white border-t border-slate-100">
@@ -44,54 +42,60 @@ export default function Authors() {
           </button>
         </div>
 
-        <div className="grid md:grid-cols-3 border-t border-l border-slate-100">
-          {experts.map((expert, idx) => (
-            <motion.div
-              key={expert.id}
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
-              className="bg-white p-12 border-r border-b border-slate-100 group relative overflow-hidden hover:bg-slate-50 transition-colors"
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="relative mb-8">
-                  <img 
-                    src={expert.image} 
-                    alt={expert.name} 
-                    className="w-20 h-20 rounded-full object-cover border border-slate-200 p-1 relative z-10"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-                <h3 className="font-editorial font-bold text-2xl mb-1">{expert.name}</h3>
-                <p className="editorial-label text-brand-accent mb-4">{expert.title}</p>
-                <p className="text-slate-500 text-sm mb-4 line-clamp-3">{expert.bio}</p>
-                
-                <div className="pt-4 border-t border-slate-50 w-full mb-6">
-                   <p className="text-[10px] font-bold tracking-widest text-slate-400">{expert.contributionsCount || 1} CONTRIBUTIONS</p>
-                </div>
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="animate-spin text-brand-accent" size={32} />
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-3 border-t border-l border-slate-100">
+            {displayExperts.map((expert, idx) => (
+              <motion.div
+                key={expert.id}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+                className="bg-white p-12 border-r border-b border-slate-100 group relative overflow-hidden hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex flex-col items-center text-center">
+                  <div className="relative mb-8">
+                    <img 
+                      src={expert.image} 
+                      alt={expert.name} 
+                      className="w-20 h-20 rounded-full object-cover border border-slate-200 p-1 relative z-10"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <h3 className="font-editorial font-bold text-2xl mb-1">{expert.name}</h3>
+                  <p className="editorial-label text-brand-accent mb-4">{expert.title}</p>
+                  <p className="text-slate-500 text-sm mb-4 line-clamp-3">{expert.bio}</p>
+                  
+                  <div className="pt-4 border-t border-slate-50 w-full mb-6">
+                     <p className="text-[10px] font-bold tracking-widest text-slate-400">{expert.contributionsCount || 1} CONTRIBUTIONS</p>
+                  </div>
 
-                <div className="flex gap-6">
-                  {expert.twitter && (
-                    <a href={expert.twitter.startsWith('@') ? `https://twitter.com/${expert.twitter.slice(1)}` : expert.twitter} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-black transition-colors">
-                      <Twitter size={18} />
-                    </a>
-                  )}
-                  {expert.linkedin && (
-                    <a href={expert.linkedin.startsWith('http') ? expert.linkedin : `https://linkedin.com/in/${expert.linkedin}`} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-black transition-colors">
-                      <Linkedin size={18} />
-                    </a>
-                  )}
-                  {expert.website && (
-                    <a href={expert.website} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-black transition-colors">
-                      <ExternalLink size={18} />
-                    </a>
-                  )}
+                  <div className="flex gap-6">
+                    {expert.twitter && (
+                      <a href={expert.twitter.startsWith('@') ? `https://twitter.com/${expert.twitter.slice(1)}` : expert.twitter} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-black transition-colors">
+                        <Twitter size={18} />
+                      </a>
+                    )}
+                    {expert.linkedin && (
+                      <a href={expert.linkedin.startsWith('http') ? expert.linkedin : `https://linkedin.com/in/${expert.linkedin}`} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-black transition-colors">
+                        <Linkedin size={18} />
+                      </a>
+                    )}
+                    {expert.website && (
+                      <a href={expert.website} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-black transition-colors">
+                        <ExternalLink size={18} />
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
