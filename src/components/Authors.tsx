@@ -11,22 +11,20 @@ export default function Authors() {
 
   useEffect(() => {
     const fetchExperts = async () => {
-      const data = await getExperts();
-      setExperts(data);
-      setLoading(false);
+      setLoading(true);
+      try {
+        const data = await getExperts();
+        setExperts(data);
+      } catch (error) {
+        console.error("Error fetching experts:", error);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchExperts();
   }, []);
 
-  const displayExperts = experts.length > 0 ? experts : AUTHORS.map((author, idx) => ({
-    id: `static-${idx}`,
-    name: author.name,
-    title: author.role,
-    image: author.avatar,
-    bio: author.stats,
-    createdAt: new Date(),
-    contributionsCount: parseInt(author.stats.split(' ')[0]) || 12
-  })) as any[];
+  if (!loading && experts.length === 0) return null;
 
   return (
     <section className="py-24 px-6 md:px-12 bg-white border-t border-slate-100">
@@ -48,7 +46,7 @@ export default function Authors() {
           </div>
         ) : (
           <div className="grid md:grid-cols-3 border-t border-l border-slate-100">
-            {displayExperts.map((expert, idx) => (
+            {experts.map((expert, idx) => (
               <motion.div
                 key={expert.id}
                 initial={{ opacity: 0 }}

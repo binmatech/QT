@@ -13,22 +13,21 @@ export default function Events() {
 
   useEffect(() => {
     const fetchEvents = async () => {
-      const data = await getEvents();
-      // Show only up to 2 for the homepage
-      setEvents(data.length > 0 ? data.slice(0, 2) : []);
-      setLoading(false);
+      setLoading(true);
+      try {
+        const data = await getEvents();
+        // Show only up to 2 for the homepage
+        setEvents(data.length > 0 ? data.slice(0, 2) : []);
+      } catch (error) {
+        console.error("Error fetching events:", error);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchEvents();
   }, []);
 
-  const displayEvents = events.length > 0 ? events : EVENTS.slice(0, 2).map((e, idx) => ({
-    ...e,
-    id: `static-${idx}`,
-    description: "Experience the future of finance and technology.",
-    image: "",
-    time: "10:00 AM",
-    createdAt: new Date()
-  })) as any[];
+  if (!loading && events.length === 0) return null;
 
   return (
     <section className="py-32 px-6 md:px-12 bg-black text-white overflow-hidden relative">
@@ -53,7 +52,7 @@ export default function Events() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-px bg-white/10 border border-white/10">
-            {displayEvents.map((event) => (
+            {events.map((event) => (
               <motion.div
                 key={event.id}
                 initial={{ opacity: 0 }}

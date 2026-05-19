@@ -17,13 +17,10 @@ export const getArticleById = async (id: string) => {
       } as Article;
     }
     
-    // Fallback to static articles
-    const staticArticle = ARTICLES.find(a => a.id.toString() === id.toString());
-    return staticArticle ? { ...staticArticle, content: "This is a fallback preview of the article content. Please sign in and seed the database for the full experience." } as Article : null;
+    return null;
   } catch (error) {
     console.error("Error fetching article:", error);
-    const staticArticle = ARTICLES.find(a => a.id.toString() === id.toString());
-    return staticArticle ? { ...staticArticle, content: "This is a fallback preview of the article content. Please sign in and seed the database for the full experience." } as Article : null;
+    return null;
   }
 };
 
@@ -50,13 +47,10 @@ export const getArticles = async (featuredOnly = false) => {
       id: doc.id
     })) as Article[];
 
-    if (articles.length === 0) {
-      return featuredOnly ? ARTICLES.filter(a => a.featured) : ARTICLES;
-    }
     return articles;
   } catch (error) {
     console.error("Error fetching articles:", error);
-    return featuredOnly ? ARTICLES.filter(a => a.featured) : ARTICLES;
+    return [];
   }
 };
 
