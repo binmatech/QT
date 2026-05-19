@@ -1380,7 +1380,7 @@ export default function AdminDashboard() {
       </main>
 
       {/* Delete Confirmation Modal */}
-      {(articleToDelete || eventToDelete || expertToDelete) && (
+      {(articleToDelete || eventToDelete || expertToDelete || spotlightToDelete) && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
@@ -1388,14 +1388,19 @@ export default function AdminDashboard() {
             className="bg-white max-w-md w-full p-8 border border-slate-200 shadow-2xl"
           >
             <h3 className="text-xl font-editorial font-bold mb-4">
-              {articleToDelete ? "Cease Circulation?" : eventToDelete ? "Cancel Event?" : "Remove Expert?"}
+              {articleToDelete ? "Cease Circulation?" : 
+               eventToDelete ? "Cancel Event?" : 
+               expertToDelete ? "Remove Expert?" :
+               "Delete Spotlight?"}
             </h3>
             <p className="text-slate-500 mb-8 leading-relaxed">
               {articleToDelete 
                 ? "This action will permanently remove this story from the public feed. It cannot be recovered."
                 : eventToDelete
                 ? "This action will permanently remove this event from the calendar. It cannot be recovered."
-                : "This action will remove the expert profile and their linked credentials from the public network."
+                : expertToDelete
+                ? "This action will remove the expert profile and their linked credentials from the public network."
+                : "This action will permanently remove this founder spotlight story. It cannot be recovered."
               }
             </p>
             <div className="flex gap-4">
@@ -1404,21 +1409,27 @@ export default function AdminDashboard() {
                   setArticleToDelete(null);
                   setEventToDelete(null);
                   setExpertToDelete(null);
+                  setSpotlightToDelete(null);
                 }}
                 className="flex-1 py-3 border border-slate-200 font-bold uppercase text-[10px] tracking-widest hover:bg-slate-50 transition-colors"
               >
-                {articleToDelete ? "Retain Story" : eventToDelete ? "Keep Event" : "Retain Expert"}
+                {articleToDelete ? "Retain Story" : 
+                 eventToDelete ? "Keep Event" : 
+                 expertToDelete ? "Retain Expert" :
+                 "Retain Spotlight"}
               </button>
               <button 
                 disabled={
                   articleToDelete ? deletingIds.includes(articleToDelete) : 
                   eventToDelete ? deletingEventIds.includes(eventToDelete!) :
-                  deletingExpertIds.includes(expertToDelete!)
+                  expertToDelete ? deletingExpertIds.includes(expertToDelete!) :
+                  deletingSpotlightIds.includes(spotlightToDelete!)
                 }
                 onClick={() => {
                   if (articleToDelete) handleDelete(articleToDelete);
                   else if (eventToDelete) handleEventDelete(eventToDelete);
                   else if (expertToDelete) handleExpertDelete(expertToDelete);
+                  else if (spotlightToDelete) handleSpotlightDelete(spotlightToDelete);
                 }}
                 className="flex-1 py-3 bg-red-600 text-white font-bold uppercase text-[10px] tracking-widest hover:bg-red-700 transition-colors disabled:bg-slate-300"
               >
@@ -1426,7 +1437,9 @@ export default function AdminDashboard() {
                   ? (deletingIds.includes(articleToDelete) ? "Decommissioning..." : "Confirm Deletion")
                   : eventToDelete
                   ? (deletingEventIds.includes(eventToDelete!) ? "Removing..." : "Confirm Cancellation")
-                  : (deletingExpertIds.includes(expertToDelete!) ? "Removing..." : "Confirm Removal")
+                  : expertToDelete
+                  ? (deletingExpertIds.includes(expertToDelete!) ? "Removing..." : "Confirm Removal")
+                  : (deletingSpotlightIds.includes(spotlightToDelete!) ? "Removing..." : "Confirm Deletion")
                 }
               </button>
             </div>
